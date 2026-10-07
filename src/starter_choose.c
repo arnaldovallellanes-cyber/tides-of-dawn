@@ -65,13 +65,13 @@ static const u8 sText_ChooseZoruaForm[] = _("Zorua comes from two regions.\nWhic
 static const u8 sText_ChooseArmor[] = _("An armor for Charcadet, pa'l viaje.\nWhich one would you like?");
 static const struct MenuAction sZoruaFormActions[] =
 {
-    {.text = _("Unovan Zorua")},
-    {.text = _("Hisuian Zorua")},
+    {.text = COMPOUND_STRING("Unovan Zorua")},
+    {.text = COMPOUND_STRING("Hisuian Zorua")},
 };
 static const struct MenuAction sCharcadetArmorActions[] =
 {
-    {.text = _("Auspicious Armor")},
-    {.text = _("Malicious Armor")},
+    {.text = COMPOUND_STRING("Auspicious Armor")},
+    {.text = COMPOUND_STRING("Malicious Armor")},
 };
 
 const u16 gBirchBagGrass_Pal[] = INCGFX_U16("graphics/starter_choose/tiles.png", ".gbapal");
