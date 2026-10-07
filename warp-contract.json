@@ -1,0 +1,6 @@
+{
+  "cities": ["PuebloAlmendro", "PuertoBrisa", "VillaMangle"],
+  "interiors": {"HarborHouse": "PuertoBrisa", "AlmendroHome": "PuebloAlmendro"},
+  "required_round_trips": [["PuertoBrisa", "HarborHouse"]],
+  "forbidden_edges": [["PuertoBrisa", "AlmendroHome"]]
+}
