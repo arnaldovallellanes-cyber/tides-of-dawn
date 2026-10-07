@@ -1,0 +1,98 @@
+name: Tides of Dawn Modern Alpha
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tides-modern-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import pinned source once
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ ! -f tools/tides/bootstrap_source.py ]; then
+            python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          from zipfile import ZipFile
+          archive = Path('Tides_of_Dawn_Modern_Source_Bootstrap.zip')
+          expected = '6e3738c24844c89732c67aa6954644df07471fe4587edecbc88bfda5e41650e5'
+          if hashlib.sha256(archive.read_bytes()).hexdigest() != expected:
+              raise SystemExit('Source ZIP checksum mismatch')
+          with ZipFile(archive) as package:
+              for entry in package.infolist():
+                  dest = Path(entry.filename)
+                  if dest.is_absolute() or '..' in dest.parts:
+                      raise SystemExit('Unsafe source ZIP path')
+                  if entry.is_dir() or dest.parts[0] == '.github':
+                      continue
+                  content = package.read(entry)
+                  flat = Path(dest.name)
+                  if flat != dest and flat.is_file() and flat.read_bytes() == content:
+                      flat.unlink()
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(content)
+          PY
+            git add -A
+            git commit -m 'Recover source directories from uploaded bootstrap ZIP'
+          fi
+          python3 tools/tides/bootstrap_source.py --publish
+
+      - name: Verify pinned source import
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          git merge-base --is-ancestor bb1093a7c72d3961d9a37d8e02ad2abc2c866682 HEAD
+
+      - name: Require complete source
+        run: python3 tools/tides/validate_source.py
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential binutils-arm-none-eabi gcc-arm-none-eabi libnewlib-arm-none-eabi libpng-dev python3
+          arm-none-eabi-gcc --version
+
+      - name: Regression tests and source warp validation
+        run: |
+          python3 -m unittest discover -s test/tides
+          python3 tools/tides/validate_warps.py
+
+      - name: Build GBA ROM from source
+        run: make -j2 -O all FILE_NAME=Tides_of_Dawn_Modern_Alpha TITLE="TIDES DAWN" COMPARE=0 GAME_VERSION=EMERALD
+
+      - name: Check ROM header and record provenance
+        run: |
+          python3 tools/tides/validate_rom.py Tides_of_Dawn_Modern_Alpha.gba
+          sha256sum Tides_of_Dawn_Modern_Alpha.gba > Tides_of_Dawn_Modern_Alpha.sha256
+          python3 tools/tides/build_manifest.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tides_of_Dawn_Modern_Alpha
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            Tides_of_Dawn_Modern_Alpha.gba
+            Tides_of_Dawn_Modern_Alpha.elf
+            Tides_of_Dawn_Modern_Alpha.map
+            Tides_of_Dawn_Modern_Alpha.sha256
+            build-manifest.json
